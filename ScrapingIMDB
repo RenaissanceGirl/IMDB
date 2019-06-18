@@ -1,0 +1,182 @@
+import os
+import sys
+sys.path.append('E:/DataScienceNew/WebscrapingProjects/IMDB/')
+import Settings
+from bs4 import BeautifulSoup
+from time import sleep, time
+from random import randint
+from IPython.core.display import clear_output
+import requests
+
+
+# Scrape every top 10000 movies in each genre
+
+def Scrape(genres_url, page_url_numstr):
+    for genre_url in genres_url:
+        years = []
+        descriptions = []
+        metascores = []
+        imdb_ratings = []
+        votes = []
+        genres = []
+        movie_ratings = []
+        lengths = []
+        grosses = []
+        directors = []
+        stars = []
+        
+    # Preparing the monitoring of the loop
+        start_time = time()
+        request_number = 0
+            
+        # For every page 
+        for page_number in page_url_numstr:
+        
+            # Make a get request
+            response = requests.get('https://www.imdb.com/search/title?title_type=movie&genres='+genre_url+
+            '&start='+page_number+'&explore=title_type,genres&ref_=adv_prv')
+            
+            
+            # Pause the loop
+            sleep(randint(8,15))
+            
+             # Monitor the requests
+            request_number += 1
+            elapsed_time = time() - start_time
+            print('Request:{}; Frequency: {} request_number/s'.format(request_number, request_number/elapsed_time))
+            clear_output(wait = True)
+            
+            # Throw a warning for non-200 status codes
+            if response.status_code != 200:
+                warn('Request: {}; Status code: {}'.format(request_number, response.status_code))
+            
+            # Break the loop if the number of requests is greater than expected
+            if request_number > 200:
+                warn('Number of requests was greater than expected.')
+                break
+            
+            # Parse the content of the request with BeautifulSoup
+            page_html = BeautifulSoup(response.text, 'html.parser')
+            
+            # Select all the 50 movie containers from a single page
+            movie_containers = page_html.find_all('div', class_ = 'lister-item mode-advanced')
+    
+                # For every movie of these 50
+            for container in movie_containers:
+                    
+                    # If the movie has a Metascore, then:
+                    if container.find('div', class_ = 'ratings-metascore') is not None:
+                        # Scrape the name
+                        if container.h3.a is None:
+                            names.append("NA")
+                        else:
+                            name = container.h3.a.text
+                            names.append(name)
+                        
+                        # Scrape the year
+                        if container.h3.find('span', class_ = 'lister-item-year text-muted unbold') is None:
+                            years.append("NA")
+                        else:
+                            year = container.h3.find('span', class_ = 'lister-item-year text-muted unbold').text
+                            years.append(year)
+                        
+                        #Scrape the movie description
+                        if container.find_all('p', class_='text-muted')[1] is None:
+                            descriptions.append("NA")
+                        else:
+                            description = container.find_all('p', class_='text-muted')[1].text.replace('\n    ', '')
+                            descriptions.append(description)
+                        
+                        # Scrape the IMDB rating
+                        if container.strong is None:
+                            imdb_ratings.append("NA")
+                        else:
+                            imdb = float(container.strong.text)
+                            imdb_ratings.append(imdb)
+                        
+                        # Scrape the Metascore
+                        if container.find('span', class_= "metascore") is None:
+                            metascores.append("NA")
+                        else:
+                            m_score = container.find('span', class_= "metascore").text
+                            metascores.append(int(m_score))
+                        
+                        # Scrape the number of votes
+                        if container.find('span', attrs = {'name':'nv'}) is None:
+                            votes.append("NA")
+                        else:    
+                            vote = container.find('span', attrs = {'name':'nv'})['data-value']
+                            votes.append(int(vote))
+                        
+                        #Scrape Movie Genres
+                        genre = container.find_all('p', class_='text-muted')[0]
+                        if genre.find('span', class_='genre') is None:
+                            genres.append("NA")
+                        else:
+                            genre = genre.find('span', class_='genre').text.replace('\n', '').strip()
+                            genres.append(genre)
+    
+                        #Scrape Movie Ratings (G, PG, PG-13, etc.)
+                        movie_rating = container.find_all('p', class_='text-muted')[0]
+                        if movie_rating.find('span', class_='certificate') is None:
+                            movie_ratings.append("NA")
+                        else:
+                            movie_rating = movie_rating.find('span', class_='certificate').text
+                            movie_ratings.append(movie_rating)
+    
+                        #Scrape Movie Length (in minutes)
+                        length = container.find_all('p', class_='text-muted')[0]
+                        if length.find('span', class_='runtime') is None:
+                            lengths.append("NA")
+                        else:
+                            length = length.find('span', class_='runtime').text.replace(' min', '')
+                            lengths.append(int(length))
+    
+                        #Scrape Movie Gross Amount
+                        gross = container.find_all('p', class_='sort-num_votes-visible')
+                        if len(gross) >= 1:
+                            if len(gross[0].find_all('span', attrs = {'name': 'nv'})) < 2:
+                                grosses.append("NA")
+                            else:
+                                gross = gross[0].find_all('span', attrs = {'name': 'nv'})[1]
+                                gross = gross['data-value']
+                                grosses.append(gross)
+                                
+                        else:
+                            grosses.append("NA")
+                        
+                        #Scrape Directors
+                        if container.find_all('p', class_='')[1].a is None:
+                            directors.append("NA")
+                        else:
+                            director = container.find_all('p', class_='')[1].a.text
+                            directors.append(director)
+                        
+                        #Scrape Star
+                        star = container.find_all('p', class_='')[1].find_all('a')
+                        if star is None:
+                            stars.append("NA")
+                        else:
+                            star = [star[i].text for i in range(1, len(star))]
+                            star = ', '.join(star)
+                            stars.append(star)
+                            
+        IMDB_Data = pd.DataFrame({'movie': names,
+                                  'year': years,
+                                  'description': descriptions,
+                                  'metascore': metascores,
+                                  'imdb_ratings': imdb_ratings,
+                                  'votes': votes,
+                                  'genres': genres,
+                                  'movie_ratings': movie_ratings, 
+                                  'lengths': lengths,
+                                  'grosses': grosses,
+                                  'directors': directors,
+                                  'stars': stars
+                                 })
+    
+        IMDB_Data.to_csv('E:/DataScienceNew/WebscrapingProjects/IMDB_Data_{}.csv'.format(genre_url), encoding='utf-8', index=False)           
+
+
+if __name__ == "__main__":
+    Scrape(Settings.genres_url, Settings.page_url_numstr)
