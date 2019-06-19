@@ -175,7 +175,7 @@ def Scrape(genres_url, page_url_numstr):
                                   'stars': stars
                                  })
     
-        IMDB_Data.to_csv('E:/DataScienceNew/WebscrapingProjects/IMDB_Data_{}.csv'.format(genre_url), encoding='utf-8', index=False)           
+        IMDB_Data.to_csv('E:/DataScienceNew/WebscrapingProjects/IMDB/datasets/IMDB_Data_{}.csv'.format(genre_url), encoding='utf-8', index=False)           
 
 
 if __name__ == "__main__":
