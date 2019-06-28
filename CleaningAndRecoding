@@ -1,1 +1,102 @@
+# Standard plotly imports
+import Settings
+from os import listdir
+from sklearn.preprocessing import OneHotEncoder
+import plotly.offline as offline 
+from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot 
 
+import plotly.plotly as py
+import plotly.graph_objs as go
+from plotly.offline import iplot, init_notebook_mode
+# Using plotly + cufflinks in offline mode
+import cufflinks
+cufflinks.go_offline(connected=True)
+init_notebook_mode(connected=True)
+
+
+#Concatenate the Data Pieces by Row, change the index from 0 - end, and drop all the movie duplicates
+
+def concatenate_datasets(paths, var_names):
+    files = os.listdir(paths)
+    full = []
+    for f in files:
+        data = pd.read_csv(os.path.join(paths, f), header = 0, index_col=False)
+        full.append(data)
+    
+    full = pd.concat(full)
+    full = full.drop_duplicates(subset=["movie"], keep = 'first')
+    full.index = np.arange(0, len(full))
+    return full
+    
+
+def DataCleaning(DF, cts_vars, cat_vars):
+    DF.loc[:, 'year'] = DF['year'].str[-5:-1].astype(float)
+    DF.loc[:, 'grosses'] = DF['grosses'].str.replace(",", "")
+    
+    for var in cts_vars:
+        #Change all continuous variables to floats
+        DF.loc[:, var] = DF[var].astype(float)
+        
+
+    for str_var in Settings.Categorical_Variables:
+        #Change all columns with more than one entries to several columns with one entry per column
+        frame = DF[str_var].str.split(",",expand=True,)
+        frame.columns = [str_var+'_'+str(i) for i in range(0, frame.shape[1])]
+        DF[frame.columns] = frame
+        DF.drop([str_var], axis=1)
+   
+    DF_obj = DF.select_dtypes(['object'])
+    DF[DF_obj.columns] = DF_obj.apply(lambda x: x.str.strip())
+    DF.index = np.arange(0, DF.shape[0])
+    return DF
+
+IMDB_Complete['movie_ratings'].value_counts(dropna = False)
+IMDB_Complete['genres_0'].value_counts(dropna = False)
+IMDB_Complete['genres_1'].value_counts(dropna = False)
+IMDB_Complete['genres_2'].value_counts(dropna = False)
+IMDB_Complete['directors'].value_counts(dropna = False)
+
+IMDB_Complete['stars_0'].value_counts(dropna = False)
+IMDB_Complete['stars_1'].value_counts(dropna = False)
+IMDB_Complete['stars_2'].value_counts(dropna = False)
+IMDB_Complete['stars_3'].value_counts(dropna = False)
+
+def Recode_Genres(DF, genre_list):
+    for i in range(len(genre_list)):
+        DF[genre_list[i]]=0
+        for j in range(DF.shape[0]):
+            if genre_list[i] in [DF['genres_0'][j], DF['genres_1'][j], DF['genres_2'][j]]:
+                DF[genre_list[i]][j]=1
+            else:
+                DF[genre_list[i]][j]=0
+    return DF
+
+
+
+def Recode_Ratings(DF, Mov_Rat_Dict):
+    for key in Mov_Rat_Dict:
+        DF[key] = 0
+        for i in range(DF.shape[0]):
+            if DF['movie_ratings'][i] in Mov_Rat_Dict[key]:
+                DF[key][i]=1 
+            else:
+                DF[key][i]=0
+    return DF
+                
+                
+# Check extreme rating values to determine if all the ratings are within the expected intervals
+Movie_Rating = IMDB_Complete['movie_ratings'].iplot(kind='hist', xTitle='Ratings',
+                  yTitle='count', title='Movie Ratings Distribution')
+
+
+
+
+#Normalizing one of the ratings type (or both) for generating a comparative histogram
+
+
+
+if __name__ == "__main__":
+    IMDB_Complete = concatenate_datasets(Settings.file_path, Settings.Var_names)
+    IMDB_Complete_Clean = DataCleaning(IMDB_Complete, Settings.Continuous_Variables, Settings.Categorical_Variables)
+    IMDB_Recode1 = Recode_Genres(IMDB_Complete_Clean, Settings.Genre_Categories)
+    IMDB_Recode2 = Recode_Ratings(IMDB_Complete_Clean, Settings.movie_rating_categories)
